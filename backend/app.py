@@ -10,7 +10,7 @@ app = Flask(__name__)
 # Configure CORS properly
 CORS(app, resources={
     r"/api/*": {
-        "origins": ["http://localhost:5173", "https://ukosinglepredictor.netlify.app/"],
+        "origins": ["http://localhost:5173", "https://ukosinglepredictor.netlify.app"],
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type"],
         "supports_credentials": False
