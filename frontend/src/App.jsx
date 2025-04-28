@@ -2,10 +2,6 @@ import { useState } from 'react';
 import axios from 'axios';
 import { PredictorForm, ResultCard } from './components/predictor';
 
-// Configure axios defaults
-axios.defaults.headers.common['Content-Type'] = 'application/json';
-axios.defaults.headers.common['Accept'] = 'application/json';
-
 function App() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -20,21 +16,20 @@ function App() {
     setError(null);
     
     try {
-      console.log('Making request to:', `${API_BASE_URL}/predict`); // Debug log
+      console.log('Making request to:', `${API_BASE_URL}/predict`);
       
       const response = await axios.post(
         `${API_BASE_URL}/predict`,
         formData,
         {
           headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
+            'Content-Type': 'application/json' // Only essential header
           },
-          withCredentials: false
+          timeout: 8000 // Added timeout
         }
       );
 
-      if (!response.data || typeof response.data.percentage === 'undefined') {
+      if (!response.data?.percentage) {
         throw new Error('Invalid server response format');
       }
 
@@ -49,41 +44,26 @@ function App() {
     } catch (err) {
       let errorMessage = 'Failed to process your request';
       
-      // Enhanced error handling
       if (err.response) {
-        // Server responded with error status
         if (err.response.status === 0) {
-          errorMessage = 'CORS Error: Request blocked. Please try again later.';
+          errorMessage = 'CORS Error: Request blocked';
         } else if (err.response.status === 404) {
           errorMessage = 'API endpoint not found';
         } else if (err.response.status >= 500) {
           errorMessage = 'Server is currently unavailable';
         } else {
-          errorMessage = err.response.data?.error || 
-                        err.response.data?.message || 
-                        `Server error (${err.response.status})`;
+          errorMessage = err.response.data?.message || `Server error (${err.response.status})`;
         }
       } else if (err.request) {
-        // No response received
-        if (err.code === 'ECONNABORTED') {
-          errorMessage = 'Request timeout - server took too long to respond';
-        } else if (err.code === 'ERR_NETWORK') {
-          errorMessage = 'Network error - please check your connection';
-        } else {
-          errorMessage = 'No response received from server';
-        }
+        errorMessage = err.code === 'ERR_NETWORK' 
+          ? 'Network error - please check your connection'
+          : 'No response received from server';
       } else {
-        // Setup error
         errorMessage = err.message || 'Request configuration error';
       }
 
       setError(errorMessage);
-      console.error('API Error Details:', {
-        error: err,
-        config: err.config,
-        response: err.response,
-        request: err.request
-      });
+      console.error('API Error:', err);
 
     } finally {
       setLoading(false);
@@ -115,8 +95,7 @@ function App() {
                 <p>If this persists, try:</p>
                 <ul className="list-disc pl-5">
                   <li>Refreshing the page</li>
-                  <li>Clearing browser cache</li>
-                  <li>Trying a different browser</li>
+                  <li>Checking backend status</li>
                 </ul>
               </div>
             )}
