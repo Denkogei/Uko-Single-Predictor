@@ -8,10 +8,7 @@ function App() {
   const [error, setError] = useState(null);
 
   // Explicit API URL configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 
-  (import.meta.env.MODE === 'development' 
-    ? 'http://localhost:5000/api' 
-    : 'https://uko-single-predictor.onrender.com/api');
+const API_BASE_URL = 'https://uko-single-predictor.onrender.com/api';
 
 const handleSubmit = async (formData) => {
   setLoading(true);
@@ -27,17 +24,14 @@ const handleSubmit = async (formData) => {
       return config;
     });
 
-    const response = await axios.post(
-      requestUrl,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        timeout: 10000,
-        withCredentials: false
-      }
-    );
+   const response = await axios.post(
+  `${API_BASE_URL}/predict`, // Now guaranteed to be /api/predict
+  formData,
+  {
+    headers: { 'Content-Type': 'application/json' },
+    timeout: 10000
+  }
+);
 
     console.log('Response:', response); // Debug response
 
