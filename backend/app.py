@@ -10,26 +10,14 @@ app = Flask(__name__)
 # Configure CORS properly
 CORS(app, resources={
     r"/api/*": {
-        "origins": [
-            "http://localhost:5173", 
-            "https://ukosinglepredictor.netlify.app",  
-            "https://ukosinglepredictor.netlify.app"   
-        ],
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"],
-        "expose_headers": ["Content-Type"],
+        "origins": "https://ukosinglepredictor.netlify.app",
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"],
         "supports_credentials": False,
-        "max_age": 86400
+        "max_age": 600
     }
 })
 
-# Add this handler for OPTIONS requests
-@app.after_request
-def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    return response
 
 def load_messages():
     """Load messages from JSON file with proper error handling"""
