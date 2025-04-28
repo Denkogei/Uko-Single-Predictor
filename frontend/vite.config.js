@@ -15,8 +15,17 @@ export default defineConfig({
         target: 'https://uko-single-predictor.onrender.com',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        rewrite: (path) => path.replace(/^\/api/, '/api'), // Keep /api prefix
+        configure: (proxy) => {
+          proxy.on('error', (err, req, res) => {
+            console.log('Proxy error:', err);
+          });
+        }
       }
     }
+  },
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true
   }
 });
