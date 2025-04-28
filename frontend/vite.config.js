@@ -15,7 +15,7 @@ export default defineConfig({
         target: 'https://uko-single-predictor.onrender.com',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api/, '/api') // Keep /api in the URL
+        rewrite: (path) => path.replace(/^\/api/, '')
       }
     }
   }
