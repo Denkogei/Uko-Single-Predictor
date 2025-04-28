@@ -17,8 +17,11 @@ export default defineConfig({
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, '/api'), // Keep /api prefix
         configure: (proxy) => {
-          proxy.on('error', (err, req, res) => {
-            console.log('Proxy error:', err);
+          proxy.on('error', (err) => {
+            console.error('Proxy error:', err);
+          });
+          proxy.on('proxyReq', (proxyReq) => {
+            console.log('Proxying request to:', proxyReq.path);
           });
         }
       }
@@ -26,6 +29,11 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    emptyOutDir: true
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html')
+      }
+    }
   }
 });
