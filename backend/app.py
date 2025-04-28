@@ -8,13 +8,12 @@ import os
 app = Flask(__name__)
 
 # ===== CORS CONFIGURATION (UPDATED) =====
-CORS(app, resources={
-    r"/*": {
-        "origins": "*",
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"]
-    }
-})
+@app.after_request
+def add_cors(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    return response
 
 # ===== ORIGINAL MESSAGE LOADING CODE =====
 def load_messages():
@@ -104,32 +103,72 @@ CORS(app, resources={
 
 @app.route('/api/predict', methods=['POST', 'OPTIONS'])
 def predict():
-    # Handle OPTIONS first
+    # 1. First handle OPTIONS preflight requests
     if request.method == 'OPTIONS':
-        response = jsonify({'status': 'ready'})
+        response = jsonify({
+            'status': 'preflight', 
+            'success': True,
+            'message': 'CORS preflight handled'
+        })
+        # Set CORS headers
         response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
-        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS, GET')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        response.headers.add('Access-Control-Max-Age', '600')  # Cache for 10 minutes
         return response
 
-    # Handle POST
+    # 2. Now handle the actual POST request
     try:
+        # Ensure data was received
+        if not request.is_json:
+            response = jsonify({
+                "success": False,
+                "error": "Missing JSON data"
+            })
+            response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
+            return response, 400
+
         data = request.get_json()
-        if not data:
-            return jsonify({"success": False, "error": "No data received"}), 400
-            
-        # [Keep all your existing validation logic...]
         
+        # Validate required fields
+        required = ['name', 'dob', 'tribe']
+        if not all(field in data for field in required):
+            response = jsonify({
+                "success": False,
+                "error": f"Missing required fields: {required}",
+                "received": list(data.keys())
+            })
+            response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
+            return response, 400
+            
+        # Validate tribe selection
+        if data['tribe'] not in TRIBES:
+            response = jsonify({
+                "success": False,
+                "error": "Invalid tribe selection",
+                "valid_tribes": TRIBES
+            })
+            response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
+            return response, 400
+            
+        # Generate and return result
         result = generate_result(data)
-        response = jsonify({"success": True, **result})
+        response = jsonify({
+            "success": True,
+            **result
+        })
         response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
         return response
         
     except Exception as e:
-        error_response = jsonify({"success": False, "error": str(e)})
-        error_response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
-        return error_response, 500
-
+        # Handle any unexpected errors
+        response = jsonify({
+            "success": False,
+            "error": str(e),
+            "message": "An unexpected error occurred"
+        })
+        response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
+        return response, 500
 # [Keep all other routes...]
 
 if __name__ == '__main__':
