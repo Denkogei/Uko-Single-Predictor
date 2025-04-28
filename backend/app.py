@@ -1,14 +1,15 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS, cross_origin
 from datetime import datetime
 import random
 import json
 import os
-from flask_cors import CORS
 
 app = Flask(__name__)
 
-# Configure CORS properly
-CORS(app, resources={
+# ===== CORS CONFIGURATION (UPDATED) =====
+# Changed from multiple configurations to a single, comprehensive one
+cors = CORS(app, resources={
     r"/api/*": {
         "origins": ["https://ukosinglepredictor.netlify.app"],
         "methods": ["GET", "POST", "OPTIONS"],
@@ -17,7 +18,9 @@ CORS(app, resources={
         "max_age": 600
     }
 })
+# ===== END CORS CONFIGURATION =====
 
+# ===== ORIGINAL MESSAGE LOADING CODE =====
 def load_messages():
     """Load messages from JSON file with proper error handling"""
     try:
@@ -30,7 +33,7 @@ def load_messages():
 
 MESSAGES = load_messages()
 
-# Get tribes dynamically from the JSON file
+# ===== ORIGINAL TRIBE LIST CODE =====
 def get_tribe_list():
     """Extract tribes from messages JSON, excluding zodiac signs"""
     zodiac_signs = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 
@@ -40,6 +43,7 @@ def get_tribe_list():
 
 TRIBES = get_tribe_list()
 
+# ===== ORIGINAL ZODIAC CODE =====
 ZODIAC_SIGNS = {
     (1, 20): "Capricorn", (2, 18): "Aquarius", (3, 20): "Pisces",
     (4, 19): "Aries", (5, 20): "Taurus", (6, 21): "Gemini",
@@ -60,6 +64,7 @@ def get_zodiac(dob):
     except ValueError:
         return "Invalid Date"
 
+# ===== ORIGINAL RESULT GENERATION CODE =====
 def generate_result(data):
     """Generate prediction result without any image references"""
     percentage = random.randint(40, 99)
@@ -78,37 +83,24 @@ def generate_result(data):
         "tribe": data['tribe']
     }
 
-@app.route('/api/tribes', methods=['GET'])
-def get_tribes():
-    """Endpoint to fetch all available tribes"""
-    return jsonify({
-        "success": True,
-        "count": len(TRIBES),
-        "tribes": TRIBES
-    })
-
+# ===== UPDATED PREDICT ENDPOINT =====
 @app.route('/api/predict', methods=['POST', 'OPTIONS'])
+@cross_origin()  # Added explicit CORS decorator
 def predict():
-    # Handle OPTIONS request first
+    print("Received data:", request.json)
+    """Prediction endpoint with proper CORS handling"""
     if request.method == 'OPTIONS':
-        response = jsonify({
-            "status": "preflight",
-            "success": True
-        })
+        # Added comprehensive OPTIONS response
+        response = jsonify({'status': 'preflight ok'})
         response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
         response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
         return response
         
-    # Handle POST request
-    print("Received data:", request.json)
     try:
         data = request.get_json()
         if not data:
-            return jsonify({
-                "success": False, 
-                "error": "No JSON data received"
-            }), 400
+            return jsonify({"success": False, "error": "No JSON data received"}), 400
             
         required = ['name', 'dob', 'tribe']
         if not all(field in data for field in required):
@@ -125,9 +117,8 @@ def predict():
             }), 400
             
         result = generate_result(data)
-        
-        # Add CORS headers to the main response
         response = jsonify({"success": True, **result})
+        # Ensure CORS headers are added to main response
         response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
         return response
         
@@ -139,6 +130,19 @@ def predict():
         error_response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
         return error_response, 500
 
+# ===== ORIGINAL TRIBES ENDPOINT =====
+@app.route('/api/tribes', methods=['GET'])
+def get_tribes():
+    """Endpoint to fetch all available tribes"""
+    response = jsonify({
+        "success": True,
+        "count": len(TRIBES),
+        "tribes": TRIBES
+    })
+    response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
+    return response
+
+# ===== ORIGINAL HEALTH CHECK =====
 @app.route('/')
 def health_check():
     """Simple health check endpoint"""
