@@ -4,6 +4,10 @@ import Select from "@/components/ui/Select";
 import axios from 'axios';
 
 const PredictorForm = ({ onSubmit, loading: parentLoading }) => {
+  const API_BASE = import.meta.env.PROD 
+    ? 'https://uko-single-predictor.onrender.com/api'
+    : '/api';
+
   const [formData, setFormData] = useState({
     name: '',
     dob: '',
@@ -23,7 +27,13 @@ const PredictorForm = ({ onSubmit, loading: parentLoading }) => {
   useEffect(() => {
     const fetchTribes = async () => {
       try {
-        const response = await axios.get('/api/tribes');
+        console.log('Fetching tribes from:', `${API_BASE}/tribes`);
+        const response = await axios.get(`${API_BASE}/tribes`, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
         if (Array.isArray(response.data?.tribes)) {
           setTribes(response.data.tribes.map(tribe => ({
             value: tribe,
@@ -31,13 +41,20 @@ const PredictorForm = ({ onSubmit, loading: parentLoading }) => {
           })));
         }
       } catch (err) {
-        setError(`Failed to load tribes: ${err.message}`);
+        const errorMsg = `Failed to load tribes: ${err.message}`;
+        setError(errorMsg);
+        console.error('API Error Details:', {
+          message: err.message,
+          config: err.config,
+          response: err.response?.data,
+          status: err.response?.status
+        });
       } finally {
         setTribesLoading(false);
       }
     };
     fetchTribes();
-  }, []);
+  }, [API_BASE]);
 
   const validateField = (name, value) => {
     let error = '';
