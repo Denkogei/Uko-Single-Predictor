@@ -10,14 +10,13 @@ app = Flask(__name__)
 # Configure CORS properly
 CORS(app, resources={
     r"/api/*": {
-        "origins": "https://ukosinglepredictor.netlify.app",
+        "origins": ["https://ukosinglepredictor.netlify.app"],
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type"],
         "supports_credentials": False,
         "max_age": 600
     }
 })
-
 
 def load_messages():
     """Load messages from JSON file with proper error handling"""
@@ -90,15 +89,26 @@ def get_tribes():
 
 @app.route('/api/predict', methods=['POST', 'OPTIONS'])
 def predict():
-    print("Received data:", request.json)
-    """Prediction endpoint with proper CORS handling"""
+    # Handle OPTIONS request first
     if request.method == 'OPTIONS':
-        return jsonify({}), 200
+        response = jsonify({
+            "status": "preflight",
+            "success": True
+        })
+        response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        return response
         
+    # Handle POST request
+    print("Received data:", request.json)
     try:
         data = request.get_json()
         if not data:
-            return jsonify({"success": False, "error": "No JSON data received"}), 400
+            return jsonify({
+                "success": False, 
+                "error": "No JSON data received"
+            }), 400
             
         required = ['name', 'dob', 'tribe']
         if not all(field in data for field in required):
@@ -115,13 +125,19 @@ def predict():
             }), 400
             
         result = generate_result(data)
-        return jsonify({"success": True, **result})
+        
+        # Add CORS headers to the main response
+        response = jsonify({"success": True, **result})
+        response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
+        return response
         
     except Exception as e:
-        return jsonify({
+        error_response = jsonify({
             "success": False,
             "error": str(e)
-        }), 500
+        })
+        error_response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
+        return error_response, 500
 
 @app.route('/')
 def health_check():
