@@ -8,17 +8,13 @@ import os
 app = Flask(__name__)
 
 # ===== CORS CONFIGURATION (UPDATED) =====
-# Changed from multiple configurations to a single, comprehensive one
-cors = CORS(app, resources={
-    r"/api/*": {
-        "origins": ["https://ukosinglepredictor.netlify.app"],
+CORS(app, resources={
+    r"/*": {
+        "origins": "*",
         "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"],
-        "supports_credentials": False,
-        "max_age": 600
+        "allow_headers": ["Content-Type"]
     }
 })
-# ===== END CORS CONFIGURATION =====
 
 # ===== ORIGINAL MESSAGE LOADING CODE =====
 def load_messages():
@@ -84,51 +80,60 @@ def generate_result(data):
     }
 
 # ===== UPDATED PREDICT ENDPOINT =====
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from datetime import datetime
+import random
+import json
+import os
+
+app = Flask(__name__)
+
+# CORS Configuration - Minimal and Effective
+CORS(app, resources={
+    r"/api/*": {
+        "origins": ["https://ukosinglepredictor.netlify.app"],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"],
+        "supports_credentials": False,
+        "max_age": 600
+    }
+})
+
+# [Keep all your existing message loading, tribe list, zodiac functions...]
+
 @app.route('/api/predict', methods=['POST', 'OPTIONS'])
-@cross_origin()  # Added explicit CORS decorator
 def predict():
-    print("Received data:", request.json)
-    """Prediction endpoint with proper CORS handling"""
+    # Handle OPTIONS first
     if request.method == 'OPTIONS':
-        # Added comprehensive OPTIONS response
-        response = jsonify({'status': 'preflight ok'})
+        response = jsonify({'status': 'ready'})
         response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
         response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
         return response
-        
+
+    # Handle POST
     try:
         data = request.get_json()
         if not data:
-            return jsonify({"success": False, "error": "No JSON data received"}), 400
+            return jsonify({"success": False, "error": "No data received"}), 400
             
-        required = ['name', 'dob', 'tribe']
-        if not all(field in data for field in required):
-            return jsonify({
-                "success": False,
-                "error": f"Missing required fields: {required}"
-            }), 400
-            
-        if data['tribe'] not in TRIBES:
-            return jsonify({
-                "success": False,
-                "error": "Invalid tribe selection",
-                "valid_tribes": TRIBES
-            }), 400
-            
+        # [Keep all your existing validation logic...]
+        
         result = generate_result(data)
         response = jsonify({"success": True, **result})
-        # Ensure CORS headers are added to main response
         response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
         return response
         
     except Exception as e:
-        error_response = jsonify({
-            "success": False,
-            "error": str(e)
-        })
+        error_response = jsonify({"success": False, "error": str(e)})
         error_response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
         return error_response, 500
+
+# [Keep all other routes...]
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
 
 # ===== ORIGINAL TRIBES ENDPOINT =====
 @app.route('/api/tribes', methods=['GET'])
