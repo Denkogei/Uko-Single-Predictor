@@ -7,21 +7,60 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Define API base URL based on environment
+  const API_BASE_URL = import.meta.env.MODE === 'development'
+    ? '/api' // Uses proxy in development
+    : 'https://uko-single-predictor.onrender.com/api'; // Direct URL in production
+
   const handleSubmit = async (formData) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.post('/api/predict', formData, {
-        headers: {
-          'Content-Type': 'application/json'
+      const response = await axios.post(
+        `${API_BASE_URL}/predict`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
         }
+      );
+      
+      // Validate response structure
+      if (!response.data || typeof response.data.percentage === 'undefined') {
+        throw new Error('Invalid response format from server');
+      }
+      
+      setResult({
+        percentage: response.data.percentage,
+        status: response.data.status || `You are ${response.data.percentage}% single`,
+        message: response.data.message || "No additional message provided",
+        zodiac: response.data.zodiac
       });
-      setResult(response.data);
     } catch (err) {
-      setError(err.response?.data?.error || 
-              err.response?.data?.message || 
-              err.message || 
-              'Something went wrong!');
+      let errorMessage = 'Something went wrong!';
+      
+      if (err.response) {
+        // Server responded with error status
+        errorMessage = err.response.data?.error || 
+                      err.response.data?.message || 
+                      `Server error: ${err.response.status}`;
+      } else if (err.request) {
+        // Request was made but no response received
+        errorMessage = 'Network error - please check your connection';
+      } else {
+        // Something happened in setting up the request
+        errorMessage = err.message || 'Request setup error';
+      }
+      
+      setError(errorMessage);
+      console.error('API Error Details:', {
+        message: err.message,
+        config: err.config,
+        response: err.response?.data,
+        status: err.response?.status
+      });
     } finally {
       setLoading(false);
     }
@@ -41,7 +80,12 @@ function App() {
         
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
+            <div className="flex items-center">
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{error}</span>
+            </div>
           </div>
         )}
         
