@@ -7,31 +7,32 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Define API base URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 
-  (import.meta.env.MODE === 'development' 
-    ? 'http://localhost:5000/api' 
-    : 'https://uko-single-predictor.onrender.com/api');
+  // Explicit API URL configuration
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 
+    (import.meta.env.MODE === 'development' 
+      ? 'http://localhost:5000/api' 
+      : 'https://uko-single-predictor.onrender.com/api');
 
   const handleSubmit = async (formData) => {
     setLoading(true);
     setError(null);
     
     try {
-      console.log('Making request to:', `${API_BASE_URL}/predict`);
-      
+      const requestUrl = `${API_BASE_URL}/predict`;
+      console.log('Making request to:', requestUrl);
+
       const response = await axios.post(
-        `${API_BASE_URL}/predict`,
+        requestUrl,
         formData,
         {
           headers: {
-            'Content-Type': 'application/json' // Only essential header
+            'Content-Type': 'application/json'
           },
-          timeout: 8000 // Added timeout
+          timeout: 10000
         }
       );
 
-      if (!response.data?.percentage) {
+      if (!response.data || typeof response.data.percentage === 'undefined') {
         throw new Error('Invalid server response format');
       }
 
@@ -48,9 +49,9 @@ const API_BASE_URL = import.meta.env.VITE_API_URL ||
       
       if (err.response) {
         if (err.response.status === 0) {
-          errorMessage = 'CORS Error: Request blocked';
+          errorMessage = 'CORS Error: Request blocked. Please try again later.';
         } else if (err.response.status === 404) {
-          errorMessage = 'API endpoint not found';
+          errorMessage = 'API endpoint not found (404)';
         } else if (err.response.status >= 500) {
           errorMessage = 'Server is currently unavailable';
         } else {
@@ -65,7 +66,12 @@ const API_BASE_URL = import.meta.env.VITE_API_URL ||
       }
 
       setError(errorMessage);
-      console.error('API Error:', err);
+      console.error('API Error:', {
+        error: err,
+        config: err.config,
+        response: err.response,
+        request: err.request
+      });
 
     } finally {
       setLoading(false);
@@ -92,15 +98,6 @@ const API_BASE_URL = import.meta.env.VITE_API_URL ||
               </svg>
               <span>{error}</span>
             </div>
-            {error.includes('CORS') && (
-              <div className="mt-2 text-sm">
-                <p>If this persists, try:</p>
-                <ul className="list-disc pl-5">
-                  <li>Refreshing the page</li>
-                  <li>Checking backend status</li>
-                </ul>
-              </div>
-            )}
           </div>
         )}
         
