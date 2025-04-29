@@ -7,89 +7,49 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Explicit API URL configuration
-const API_BASE_URL = 'https://uko-single-predictor.onrender.com/api';
+  // Use absolute URL to ensure correct endpoint
+  const API_URL = 'https://uko-single-predictor.onrender.com/api/predict';
 
-const handleSubmit = async (formData) => {
-  setLoading(true);
-  setError(null);
-  
-  try {
-    const requestUrl = `${API_BASE_URL}/predict`;
-    console.log('Final request URL:', requestUrl); // Verify this shows /api/predict
-
-    // Add request interceptors for debugging
-    axios.interceptors.request.use(config => {
-      console.log('Request Config:', config);
-      return config;
-    });
-
-   const response = await axios.post(
-  `${API_BASE_URL}/predict`, // Now guaranteed to be /api/predict
-  formData,
-  {
-    headers: { 'Content-Type': 'application/json' },
-    timeout: 10000
-  }
-);
-
-    console.log('Response:', response); // Debug response
-
-    if (!response.data?.percentage) {
-      throw new Error('Invalid server response format');
-    }
-
-    setResult({
-      percentage: response.data.percentage,
-      status: response.data.status || `You are ${response.data.percentage}% single`,
-      message: response.data.message || "No message provided",
-      zodiac: response.data.zodiac,
-      tribe: response.data.tribe || "Unknown"
-    });
-
-  } catch (err) {
-    console.error('Full error:', err);
-    let errorMessage = 'Request failed';
+  const handleSubmit = async (formData) => {
+    setLoading(true);
+    setError(null);
     
-    if (err.code === 'ERR_NETWORK') {
-      errorMessage = 'Network error - server unavailable';
-    } else if (err.response) {
-      errorMessage = err.response.data?.message || 
-                   `Server error (${err.response.status})`;
-    }
-    
-    setError(errorMessage);
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      console.log('Sending request to:', API_URL);
+      
+      const response = await axios.post(API_URL, formData, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      });
+
+      // Validate response structure
+      if (!response.data || typeof response.data.percentage !== 'number') {
+        throw new Error('Invalid server response format');
+      }
 
       setResult({
         percentage: response.data.percentage,
         status: response.data.status || `You are ${response.data.percentage}% single`,
-        message: response.data.message || "No additional message provided",
-        zodiac: response.data.zodiac,
+        message: response.data.message || "No message provided",
+        zodiac: response.data.zodiac || "Unknown",
         tribe: response.data.tribe || "Unknown"
       });
 
     } catch (err) {
-      let errorMessage = 'Failed to process your request';
+      let errorMessage = 'Request failed';
       
       if (err.response) {
-        if (err.response.status === 0) {
-          errorMessage = 'CORS Error: Request blocked. Please try again later.';
-        } else if (err.response.status === 404) {
-          errorMessage = 'API endpoint not found (404)';
-        } else if (err.response.status >= 500) {
-          errorMessage = 'Server is currently unavailable';
-        } else {
-          errorMessage = err.response.data?.message || `Server error (${err.response.status})`;
-        }
+        // Server responded with error status
+        errorMessage = err.response.data?.error || 
+                      err.response.data?.message || 
+                      `Server error (${err.response.status})`;
       } else if (err.request) {
-        errorMessage = err.code === 'ERR_NETWORK' 
-          ? 'Network error - please check your connection'
-          : 'No response received from server';
+        // No response received
+        errorMessage = 'No response from server - check your connection';
       } else {
+        // Request setup error
         errorMessage = err.message || 'Request configuration error';
       }
 
@@ -97,10 +57,8 @@ const handleSubmit = async (formData) => {
       console.error('API Error:', {
         error: err,
         config: err.config,
-        response: err.response,
-        request: err.request
+        response: err.response
       });
-
     } finally {
       setLoading(false);
     }
