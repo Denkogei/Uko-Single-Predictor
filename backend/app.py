@@ -1,128 +1,138 @@
-import { useState } from 'react';
-import axios from 'axios';
-import { PredictorForm, ResultCard } from './components/predictor';
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from datetime import datetime
+import random
+import json
+import os
 
-function App() {
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+app = Flask(__name__)
 
-  // Define API base URL - make sure this is correct
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 
-    (import.meta.env.MODE === 'development' 
-      ? 'http://localhost:5000/api' 
-      : 'https://uko-single-predictor.onrender.com/api');
-
-  const handleSubmit = async (formData) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      console.log('Making request to:', `${API_BASE_URL}/predict`);
-      
-      const response = await axios.post(
-        `${API_BASE_URL}/predict`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          timeout: 10000
-        }
-      );
-
-      if (!response.data || typeof response.data.percentage === 'undefined') {
-        throw new Error('Invalid server response format');
-      }
-
-      setResult({
-        percentage: response.data.percentage,
-        status: response.data.status || `You are ${response.data.percentage}% single`,
-        message: response.data.message || "No additional message provided",
-        zodiac: response.data.zodiac,
-        tribe: response.data.tribe || "Unknown"
-      });
-
-    } catch (err) {
-      let errorMessage = 'Failed to process your request';
-      
-      if (err.response) {
-        if (err.response.status === 0) {
-          errorMessage = 'CORS Error: Request blocked. Please try again later.';
-        } else if (err.response.status === 404) {
-          errorMessage = 'API endpoint not found';
-        } else if (err.response.status >= 500) {
-          errorMessage = 'Server is currently unavailable';
-        } else {
-          errorMessage = err.response.data?.error || 
-                        err.response.data?.message || 
-                        `Server error (${err.response.status})`;
-        }
-      } else if (err.request) {
-        if (err.code === 'ECONNABORTED') {
-          errorMessage = 'Request timeout - server took too long to respond';
-        } else if (err.code === 'ERR_NETWORK') {
-          errorMessage = 'Network error - please check your connection';
-        } else {
-          errorMessage = 'No response received from server';
-        }
-      } else {
-        errorMessage = err.message || 'Request configuration error';
-      }
-
-      setError(errorMessage);
-      console.error('API Error Details:', {
-        error: err,
-        config: err.config,
-        response: err.response,
-        request: err.request
-      });
-    } finally {
-      setLoading(false);
+# Enable CORS with specific configuration
+CORS(app, resources={
+    r"/api/*": {
+        "origins": ["https://ukosinglepredictor.netlify.app"],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"],
+        "supports_credentials": False,
+        "max_age": 600
     }
-  };
+})
 
-  const handleReset = () => {
-    setResult(null);
-    setError(null);
-  };
+# Load messages from JSON file
+def load_messages():
+    try:
+        file_path = os.path.join('data', 'funny_quotes.json')
+        with open(file_path) as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Error loading messages: {str(e)}")
+        return {"default": ["Error loading messages"]}
 
-  return (
-    <div className="min-h-screen bg-pink-50 py-12 px-4">
-      <div className="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6">
-        <h1 className="text-3xl font-bold text-center text-pink-600 mb-6">
-          Uko Single? Predictor
-        </h1>
-        
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            <div className="flex items-center">
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>{error}</span>
-            </div>
-            {error.includes('CORS') && (
-              <div className="mt-2 text-sm">
-                <p>If this persists, try:</p>
-                <ul className="list-disc pl-5">
-                  <li>Refreshing the page</li>
-                  <li>Clearing browser cache</li>
-                  <li>Trying a different browser</li>
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-        
-        {!result ? (
-          <PredictorForm onSubmit={handleSubmit} loading={loading} />
-        ) : (
-          <ResultCard result={result} onReset={handleReset} />
-        )}
-      </div>
-    </div>
-  );
+MESSAGES = load_messages()
+
+# Get available tribes
+def get_tribe_list():
+    zodiac_signs = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 
+                   'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces']
+    return [tribe for tribe in MESSAGES.keys() 
+            if tribe != 'default' and tribe not in zodiac_signs]
+
+TRIBES = get_tribe_list()
+
+# Zodiac calculation
+ZODIAC_SIGNS = {
+    (1, 20): "Capricorn", (2, 18): "Aquarius", (3, 20): "Pisces",
+    (4, 19): "Aries", (5, 20): "Taurus", (6, 21): "Gemini",
+    (7, 22): "Cancer", (8, 22): "Leo", (9, 22): "Virgo",
+    (10, 23): "Libra", (11, 22): "Scorpio", (12, 21): "Sagittarius",
+    (12, 31): "Capricorn"
 }
 
-export default App;
+def get_zodiac(dob):
+    try:
+        date_obj = datetime.strptime(dob, "%Y-%m-%d")
+        month_day = (date_obj.month, date_obj.day)
+        for (month, day), sign in ZODIAC_SIGNS.items():
+            if (month_day[0] == month and month_day[1] <= day) or (month_day[0] == month - 1 and month_day[1] >= day):
+                return sign
+        return "Unknown"
+    except ValueError:
+        return "Invalid Date"
+
+@app.route('/api/predict', methods=['POST', 'OPTIONS'])
+def predict():
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ready'})
+        response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        return response
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "No JSON data received"}), 400
+            
+        required = ['name', 'dob', 'tribe']
+        if not all(field in data for field in required):
+            return jsonify({
+                "success": False,
+                "error": f"Missing required fields: {required}"
+            }), 400
+            
+        if data['tribe'] not in TRIBES:
+            return jsonify({
+                "success": False,
+                "error": "Invalid tribe selection",
+                "valid_tribes": TRIBES
+            }), 400
+            
+        # Generate result
+        percentage = random.randint(40, 99)
+        zodiac = get_zodiac(data['dob'])
+        tribe_msgs = MESSAGES.get(data['tribe'], [])
+        zodiac_msgs = MESSAGES.get(zodiac, [])
+        message = random.choice(tribe_msgs + zodiac_msgs or MESSAGES['default'])
+        
+        result = {
+            "percentage": percentage,
+            "status": f"Uko {percentage}% single",
+            "message": message,
+            "zodiac": zodiac,
+            "tribe": data['tribe']
+        }
+
+        response = jsonify({"success": True, **result})
+        response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
+        return response
+        
+    except Exception as e:
+        error_response = jsonify({
+            "success": False,
+            "error": str(e)
+        })
+        error_response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
+        return error_response, 500
+
+@app.route('/api/tribes', methods=['GET'])
+def get_tribes():
+    response = jsonify({
+        "success": True,
+        "count": len(TRIBES),
+        "tribes": TRIBES
+    })
+    response.headers.add('Access-Control-Allow-Origin', 'https://ukosinglepredictor.netlify.app')
+    return response
+
+@app.route('/')
+def health_check():
+    return jsonify({
+        "status": "running",
+        "endpoints": {
+            "tribes": "/api/tribes",
+            "predict": "/api/predict"
+        }
+    })
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
